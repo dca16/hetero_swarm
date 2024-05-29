@@ -4,7 +4,7 @@ import mujoco_viewer
 
 class OpenX_Simulator_Cube(): 
 
-    def __init__(self, max_step=500, model_xml="./basic_model.xml", render=True):
+    def __init__(self, max_step=500, model_xml="./multi_cube.xml", render=True):
         
         self.model = mujoco.MjModel.from_xml_path(str(model_xml))
         self.data  = mujoco.MjData(self.model)

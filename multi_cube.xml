@@ -1,0 +1,112 @@
+<?xml version="1.0" ?>
+<mujoco model="multicube_simulation">
+    <compiler angle="degree" coordinate="local"/>
+    <option timestep="0.001"/>
+
+    <!-- Worldbody -->
+    <worldbody>
+        <!-- Ground plane -->
+        <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
+
+        <!-- Sphero -->
+        <body name="sphero" pos="0 0 0.05">
+            <geom name="white_sphero" type="sphere" size="0.05" rgba="1 1 1 1" contype="1" conaffinity="1"/>
+            <joint name="sphero_free_joint" type="free" />
+            <inertial pos="0 0 0" mass="0.1" diaginertia="0.01 0.01 0.01"/>
+        </body>
+
+        <!-- Green cube 1 -->
+        <body name="cube" pos="0.6 0 0.05">
+            <geom name="green_cube" type="box" size="0.05 0.05 0.05" rgba="0 1 0 1" contype="1" conaffinity="1"/>
+            <joint name="cube_free_joint" type="free" />
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
+        </body>
+
+        <!-- Green cube 2 -->
+        <body name="cube2" pos="-0.6 0.3 0.05">
+            <geom name="green_cube2" type="box" size="0.05 0.05 0.05" rgba="0 1 0 1" contype="1" conaffinity="1"/>
+            <joint name="cube_free_joint2" type="free" />
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
+        </body>
+
+        <!-- Green cube 3 -->
+        <body name="cube3" pos="0 0.3 0.05">
+            <geom name="green_cube3" type="box" size="0.05 0.05 0.05" rgba="0 1 0 1" contype="1" conaffinity="1"/>
+            <joint name="cube_free_joint3" type="free" />
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
+        </body>
+
+        <!-- Pink cube 1 -->
+        <body name="pink_cube1" pos="0.3 0 0.05">
+            <geom name="pink_cube1" type="box" size="0.05 0.05 0.05" rgba="1 0 1 1" contype="1" conaffinity="1"/>
+            <joint name="pink_cube_free_joint1" type="free" />
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
+        </body>
+
+        <!-- Pink cube 2 -->
+        <body name="pink_cube2" pos="-0.6 0 0.05">
+            <geom name="pink_cube2" type="box" size="0.05 0.05 0.05" rgba="1 0 1 1" contype="1" conaffinity="1"/>
+            <joint name="pink_cube_free_joint2" type="free" />
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
+        </body>
+
+
+        <!-- Blue cylinder 1 -->
+        <body name="cylinder1" pos="0.3 0.3 0.05">
+            <geom name="blue_cylinder1" type="cylinder" size="0.05 0.05" rgba="0 0 1 1" contype="1" conaffinity="1"/>
+            <joint name="cylinder_free_joint1" type="free" />
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
+        </body>
+
+        <!-- Blue cylinder 2 -->
+        <body name="cylinder2" pos="-0.3 0.3 0.05">
+            <geom name="blue_cylinder2" type="cylinder" size="0.05 0.05" rgba="0 0 1 1" contype="1" conaffinity="1"/>
+            <joint name="cylinder_free_joint2" type="free" />
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
+        </body>
+
+        <!-- Blue cylinder 3 -->
+        <body name="cylinder3" pos="0.3 -0.3 0.05">
+            <geom name="blue_cylinder3" type="cylinder" size="0.05 0.05" rgba="0 0 1 1" contype="1" conaffinity="1"/>
+            <joint name="cylinder_free_joint3" type="free" />
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
+        </body>
+
+        <!-- Yellow cylinder 1 -->
+        <body name="yellow_cylinder1" pos="0 -0.3 0.05">
+            <geom name="yellow_cylinder1" type="cylinder" size="0.05 0.05" rgba="1 1 0 1" contype="1" conaffinity="1"/>
+            <joint name="yellow_cylinder_free_joint1" type="free" />
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
+        </body>
+
+        <!-- Yellow cylinder 2 -->
+        <body name="yellow_cylinder2" pos="-0.3 0 0.05">
+            <geom name="yellow_cylinder2" type="cylinder" size="0.05 0.05" rgba="1 1 0 1" contype="1" conaffinity="1"/>
+            <joint name="yellow_cylinder_free_joint2" type="free" />
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
+        </body>
+
+        <!-- Floating spotlight -->
+        <body name="spotlight_body" pos="0 0 0.5">
+            <joint name="spotlight_free_joint" type="free" />
+            <light name="spotlight" pos="0 0 0" dir="0 0 -1" diffuse="1 1 1" specular="0.5 0.5 0.5" cutoff="45" exponent="10" directional="false"/>
+            <inertial pos="0 0 0" mass="0.01" diaginertia="0.001 0.001 0.001"/>
+        </body>
+        
+        <!-- Camera -->
+        <camera name="fixed" pos="0 0 1" zaxis="0 0 1"/>
+    </worldbody>
+
+    <!-- Assets -->
+    <asset>
+        <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+        <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4" rgb2="0.1 0.2 0.3"
+        markrgb="0.8 0.8 0.8" width="300" height="300"/>
+        <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+    </asset>
+
+    <!-- Visual -->
+    <visual>
+        <map znear="0.1" zfar="50"/>
+    </visual>
+</mujoco>

@@ -1,5 +1,5 @@
 <?xml version="1.0" ?>
-<mujoco model="empty_simulation">
+<mujoco model="basic_simulation">
     <compiler angle="degree" coordinate="local"/>
     <option timestep="0.001"/>
 
@@ -12,12 +12,14 @@
         <body name="cube" pos="0 0 0.05">
             <geom name="green_cube" type="box" size="0.05 0.05 0.05" rgba="0 1 0 1" contype="1" conaffinity="1"/>
             <joint name="cube_free_joint" type="free" />
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/> <!-- Make the cube very heavy -->
         </body>
 
         <!-- White sphere -->
         <body name="sphere" pos="0.2 0 0.05">
             <geom name="white_sphere" type="sphere" size="0.05" rgba="1 1 1 1" contype="1" conaffinity="1"/>
-            <joint name="sphere_free_joint" type="free" />
+            <joint name="sphero_free_joint" type="free" />
+            <inertial pos="0 0 0" mass="0.1" diaginertia="0.01 0.01 0.01"/> <!-- Make the sphere light -->
         </body>
 
         <!-- Floating spotlight -->
