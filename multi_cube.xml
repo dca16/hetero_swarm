@@ -8,6 +8,30 @@
         <!-- Ground plane -->
         <geom name="floor" size="0 0 0.05" type="plane" material="groundplane"/>
 
+        <!-- Walls to enclose the space -->
+        <!-- Wall at x = -1 -->
+        <body name="wall_x_neg" pos="-1 0 0.025">
+            <geom name="wall_x_neg_geom" type="box" size="0.01 0.75 0.05" rgba="0.7 0.7 0.7 1" contype="1" conaffinity="1"/>
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
+        </body>
+
+        <!-- Wall at x = 1 -->
+        <body name="wall_x_pos" pos="1 0 0.025">
+            <geom name="wall_x_pos_geom" type="box" size="0.01 0.75 0.05" rgba="0.7 0.7 0.7 1" contype="1" conaffinity="1"/>
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
+        </body>
+
+        <!-- Wall at y = -0.75 -->
+        <body name="wall_y_neg" pos="0 -0.75 0.025">
+            <geom name="wall_y_neg_geom" type="box" size="1 0.01 0.05" rgba="0.7 0.7 0.7 1" contype="1" conaffinity="1"/>
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
+        </body>
+
+        <!-- Wall at y = 0.75 -->
+        <body name="wall_y_pos" pos="0 0.75 0.025">
+            <geom name="wall_y_pos_geom" type="box" size="1 0.01 0.05" rgba="0.7 0.7 0.7 1" contype="1" conaffinity="1"/>
+            <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
+        </body>
         <!-- Sphero -->
         <body name="sphero" pos="0 0 0.05">
             <geom name="white_sphero" type="sphere" size="0.05" rgba="1 1 1 1" contype="1" conaffinity="1"/>
@@ -16,71 +40,70 @@
         </body>
 
         <!-- Green cube 1 -->
-        <body name="cube" pos="0.6 0 0.05">
+        <body name="cube" pos="0.6 0.2 0.05">
             <geom name="green_cube" type="box" size="0.05 0.05 0.05" rgba="0 1 0 1" contype="1" conaffinity="1"/>
             <joint name="cube_free_joint" type="free" />
             <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
         </body>
 
         <!-- Green cube 2 -->
-        <body name="cube2" pos="-0.6 0.3 0.05">
+        <body name="cube2" pos="-0.6 0.5 0.05">
             <geom name="green_cube2" type="box" size="0.05 0.05 0.05" rgba="0 1 0 1" contype="1" conaffinity="1"/>
             <joint name="cube_free_joint2" type="free" />
             <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
         </body>
 
         <!-- Green cube 3 -->
-        <body name="cube3" pos="0 0.3 0.05">
+        <body name="cube3" pos="0.5 -0.5 0.05">
             <geom name="green_cube3" type="box" size="0.05 0.05 0.05" rgba="0 1 0 1" contype="1" conaffinity="1"/>
             <joint name="cube_free_joint3" type="free" />
             <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
         </body>
 
         <!-- Pink cube 1 -->
-        <body name="pink_cube1" pos="0.3 0 0.05">
+        <body name="pink_cube1" pos="0.3 0.3 0.05">
             <geom name="pink_cube1" type="box" size="0.05 0.05 0.05" rgba="1 0 1 1" contype="1" conaffinity="1"/>
             <joint name="pink_cube_free_joint1" type="free" />
             <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
         </body>
 
         <!-- Pink cube 2 -->
-        <body name="pink_cube2" pos="-0.6 0 0.05">
+        <body name="pink_cube2" pos="-0.3 -0.2 0.05">
             <geom name="pink_cube2" type="box" size="0.05 0.05 0.05" rgba="1 0 1 1" contype="1" conaffinity="1"/>
             <joint name="pink_cube_free_joint2" type="free" />
             <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
         </body>
 
-
         <!-- Blue cylinder 1 -->
-        <body name="cylinder1" pos="0.3 0.3 0.05">
+        <body name="cylinder1" pos="0.7 -0.3 0.05">
             <geom name="blue_cylinder1" type="cylinder" size="0.05 0.05" rgba="0 0 1 1" contype="1" conaffinity="1"/>
             <joint name="cylinder_free_joint1" type="free" />
             <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
         </body>
 
         <!-- Blue cylinder 2 -->
-        <body name="cylinder2" pos="-0.3 0.3 0.05">
+        <body name="cylinder2" pos="-0.7 0.2 0.05">
             <geom name="blue_cylinder2" type="cylinder" size="0.05 0.05" rgba="0 0 1 1" contype="1" conaffinity="1"/>
             <joint name="cylinder_free_joint2" type="free" />
             <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
         </body>
 
-        <!-- Green cylinder 1 -->
-        <body name="cylinder3" pos="0.3 -0.3 0.05">
-            <geom name="green_cylinder" type="cylinder" size="0.05 0.05" rgba="0 1 0 1" contype="1" conaffinity="1"/>
+        <!-- Blue cylinder 3 -->
+        <body name="cylinder3" pos="0.2 -0.5 0.05">
+            <geom name="blue_cylinder3" type="cylinder" size="0.05 0.05" rgba="0 0 1 1" contype="1" conaffinity="1"/>
             <joint name="cylinder_free_joint3" type="free" />
             <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
         </body>
 
         <!-- Yellow cylinder 1 -->
-        <body name="yellow_cylinder1" pos="0 -0.3 0.05">
+        <body name="yellow_cylinder1" pos="0.3 -0.1 0.05">
             <geom name="yellow_cylinder1" type="cylinder" size="0.05 0.05" rgba="1 1 0 1" contype="1" conaffinity="1"/>
             <joint name="yellow_cylinder_free_joint1" type="free" />
             <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
         </body>
 
         <!-- Yellow cylinder 2 -->
-        <body name="yellow_cylinder2" pos="-0.3 0 0.05">
+        <body name="yellow_cylinder2" pos="-0.4 0 0.05">
             <geom name="yellow_cylinder2" type="cylinder" size="0.05 0.05" rgba="1 1 0 1" contype="1" conaffinity="1"/>
             <joint name="yellow_cylinder_free_joint2" type="free" />
             <inertial pos="0 0 0" mass="100.0" diaginertia="10 10 10"/>
