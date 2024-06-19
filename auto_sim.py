@@ -4,12 +4,15 @@ import mujoco_viewer
 import glfw
 from OpenX_Cube_simulator_mujoco2 import OpenX_Simulator_Cube
 import matplotlib.pyplot as plt
+from PIL import Image
+import os
+import shutil
 
 # Initialize simulator and controller
 sim = OpenX_Simulator_Cube(render=True)
 
 # Fixed z-height for the spotlight
-fixed_z_height = 0.5
+fixed_z_height = 0.4
 
 # Cube dimensions (half extents)
 cube_half_extent = 0.05
@@ -17,6 +20,17 @@ cube_half_extent = 0.05
 # Initiate list to store contact locations
 contacts = []  # Initialize as an empty list
 cube_edges = []  # List to store the edges of the cube
+
+# List to store captured images
+captured_images = []
+
+# Directory to save images
+output_dir = "captured_images"
+
+# Clear the captured images folder
+if os.path.exists(output_dir):
+    shutil.rmtree(output_dir)
+os.makedirs(output_dir, exist_ok=True)
 
 # Grid for ergodic exploration
 grid_size = 100
@@ -100,17 +114,6 @@ def move_sphere_ergodically(sim, step_count):
     if step_count % contact_influence_steps == 0:
         visit_count[:] = np.maximum(visit_count, 0)  # Ensure visit count does not go negative
 
-
-    # Move in the best direction
-    if best_direction is not None:
-        pos_sphere[:2] += best_direction
-
-    # Ensure the sphere remains within bounds
-    pos_sphere[0] = np.clip(pos_sphere[0], -1, 1)
-    pos_sphere[1] = np.clip(pos_sphere[1], -0.75, 0.75)
-
-    sim.data.qpos[qpos_addr_sphere:qpos_addr_sphere + 3] = pos_sphere  # Set the position part of the free joint
-
 # Function to handle key presses for the spotlight
 def handle_key_presses(sim):
     # Handle spotlight movement
@@ -126,7 +129,6 @@ def handle_key_presses(sim):
     if glfw.get_key(sim.viewer.window, glfw.KEY_L) == glfw.PRESS:
         pos_spotlight[0] += 0.01  # Move right
 
-    # Ensure the z-height of the spotlight remains fixed
     pos_spotlight[2] = fixed_z_height
 
     # Ensure the spotlight remains within visible bounds
@@ -136,7 +138,7 @@ def handle_key_presses(sim):
     mujoco.mj_forward(sim.model, sim.data)
 
 # Function to check contacts and print contact info
-def check_contacts(sim, cont_arr):
+def check_contacts(sim, cont_arr, step_count):
     for i in range(sim.data.ncon):
         contact = sim.data.contact[i]
         geom1 = mujoco.mj_id2name(sim.model, mujoco.mjtObj.mjOBJ_GEOM, contact.geom1)
@@ -144,8 +146,8 @@ def check_contacts(sim, cont_arr):
         if (geom1 == 'white_sphero' and geom2 != 'floor' and not geom2.startswith('wall')) or (geom2 == 'white_sphero' and geom1 != 'floor' and not geom1.startswith('wall')):
             print("Contact detected between sphero and", geom1 if geom1 != 'white_sphero' else geom2)
             pos_contact = contact.pos[:2].copy()  # Get only the x and y coordinates and copy the array
-            cont_arr.append(pos_contact)  # Append to the list
-            print(f"Contact position: {pos_contact}")
+            cont_arr.append((pos_contact, step_count))  # Append to the list along with the time step
+            print(f"Contact position: {pos_contact}, Time step: {step_count}")
 
             # Calculate grid indices for the contact position
             x_idx = int((pos_contact[0] + 1) / 2 * (grid_size - 1))
@@ -159,6 +161,37 @@ def check_contacts(sim, cont_arr):
                     new_y_idx = y_idx + dy
                     if 0 <= new_x_idx < grid_size and 0 <= new_y_idx < grid_size:
                         visit_count[new_x_idx, new_y_idx] -= 5  # Decrease visit count to increase attractiveness
+
+# Function to capture images from the spotlight camera
+def capture_image(sim, viewer, step_count):
+    width, height = viewer.viewport.width, viewer.viewport.height
+    rgb_buffer = np.zeros((height, width, 3), dtype=np.uint8)
+    depth_buffer = np.zeros((height, width, 1), dtype=np.float32)
+
+    cam_id = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_CAMERA, 'spotlight_camera')
+
+    # Set the camera to the spotlight camera
+    viewer.cam.fixedcamid = cam_id
+    viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
+
+    # Ensure the camera is set correctly
+    mujoco.mjv_updateScene(sim.model, sim.data, viewer.vopt, None, viewer.cam, mujoco.mjtCatBit.mjCAT_ALL, viewer.scn)
+    
+    # Set the offscreen buffer
+    mujoco.mjr_setBuffer(mujoco.mjtFramebuffer.mjFB_OFFSCREEN, viewer.ctx)
+    
+    # Render the scene
+    mujoco.mjr_render(viewer.viewport, viewer.scn, viewer.ctx)
+    
+    # Read the pixels from the buffer
+    mujoco.mjr_readPixels(rgb_buffer, depth_buffer, viewer.viewport, viewer.ctx)
+    
+    # Reset to window buffer
+    mujoco.mjr_setBuffer(mujoco.mjtFramebuffer.mjFB_WINDOW, viewer.ctx)
+
+    # Save the image
+    image = Image.fromarray(rgb_buffer)
+    image.save(os.path.join(output_dir, f"step_{step_count}.png"))
 
 # Function to calculate cube edges
 def calculate_cube_edges(cube_pos):
@@ -177,7 +210,7 @@ def zero_rotational_velocity(sim, sphere_joint_id):
     sim.data.qvel[qvel_addr_sphere+3:qvel_addr_sphere+6] = 0  # Zero out the rotational part of the velocity
 
 # Run the simulation
-sim_time = 15.0
+sim_time = 5.0
 step_count = 0
 render_interval = 10  # Render every 10 steps to reduce performance impact
 sphere_joint_id = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_JOINT, 'sphero_free_joint')
@@ -193,13 +226,14 @@ while sim.t < sim_time:
     if sim.viewer.is_alive:
         move_sphere_ergodically(sim, step_count)  # Move the sphere using an ergodic algorithm
         handle_key_presses(sim)
-        check_contacts(sim, contacts)
+        check_contacts(sim, contacts, step_count)  # Pass the current step count to the check_contacts function
         zero_rotational_velocity(sim, sphere_joint_id)
         ctrl = np.zeros(sim.model.nu)
         sim.step(ctrl)
         
         if step_count % render_interval == 0:
             sim.viewer.render()
+            capture_image(sim, sim.viewer, step_count)  # Capture image at current time step
 
         # Get the cube positions and calculate their edges
         for cube_body_id in cube_body_ids:
@@ -213,15 +247,17 @@ while sim.t < sim_time:
 
 sim.close_sim()
 
-# Convert the contacts and edges lists to NumPy arrays
-contacts = np.array(contacts)
+# Convert the contacts list to a structured NumPy array
+contacts_array = np.array(contacts, dtype=[('position', float, (2,)), ('time_step', int)])
+print("Contacts:", contacts_array)
+
+# Convert the cube_edges list to a NumPy array
 cube_edges = np.array(cube_edges)
-print("Contacts:", contacts)
 print("Cube edges:", cube_edges)
 
 # Plot the contact positions and the edges of the cube
-if contacts.size > 0:
-    plt.scatter(contacts[:, 0], contacts[:, 1], c='red', marker='o', label='Contact Points', s=10)
+if contacts_array.size > 0:
+    plt.scatter(contacts_array['position'][:, 0], contacts_array['position'][:, 1], c='red', marker='o', label='Contact Points', s=10)
 if cube_edges.size > 0:
     plt.scatter(cube_edges[:, 0], cube_edges[:, 1], c='green', marker='o', label='Cube Edges', s=10)
 plt.title('Contact Positions and Cube Edges')

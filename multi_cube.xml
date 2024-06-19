@@ -113,6 +113,7 @@
         <body name="spotlight_body" pos="0 0 0.5">
             <joint name="spotlight_free_joint" type="free" />
             <light name="spotlight" pos="0 0 0" dir="0 0 -1" diffuse="1 1 1" specular="0.5 0.5 0.5" cutoff="45" exponent="10" directional="false"/>
+            <camera name="spotlight_camera" pos="0 0 0.1" mode="trackcom"/>
             <inertial pos="0 0 0" mass="0.01" diaginertia="0.001 0.001 0.001"/>
         </body>
         
