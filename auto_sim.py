@@ -11,9 +11,6 @@ import shutil
 # Initialize simulator and controller
 sim = OpenX_Simulator_Cube(render=True)
 
-# Fixed z-height for the spotlight
-fixed_z_height = 0.4
-
 # Cube dimensions (half extents)
 cube_half_extent = 0.05
 
@@ -36,6 +33,10 @@ os.makedirs(output_dir, exist_ok=True)
 grid_size = 100
 visit_count = np.zeros((grid_size, grid_size))
 contact_influence_steps = 100  # Number of steps to stay influenced by contact
+
+# Variable to keep track of the current camera
+current_camera = 'fixed'
+camera_switched = False  # Flag to debounce camera switching
 
 # Function to move sphere randomly
 def move_sphere_randomly(sim):
@@ -116,6 +117,8 @@ def move_sphere_ergodically(sim, step_count):
 
 # Function to handle key presses for the spotlight
 def handle_key_presses(sim):
+    global current_camera, camera_switched
+
     # Handle spotlight movement
     spotlight_joint_id = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_JOINT, 'spotlight_free_joint')
     qpos_addr_spotlight = sim.model.jnt_qposadr[spotlight_joint_id]
@@ -129,11 +132,23 @@ def handle_key_presses(sim):
     if glfw.get_key(sim.viewer.window, glfw.KEY_L) == glfw.PRESS:
         pos_spotlight[0] += 0.01  # Move right
 
-    pos_spotlight[2] = fixed_z_height
-
     # Ensure the spotlight remains within visible bounds
     pos_spotlight = np.clip(pos_spotlight, -1, 1)
     sim.data.qpos[qpos_addr_spotlight:qpos_addr_spotlight + 3] = pos_spotlight  # Set the position part of the free joint
+
+    # Handle camera toggling
+    if glfw.get_key(sim.viewer.window, glfw.KEY_T) == glfw.PRESS and not camera_switched:
+        if current_camera == 'fixed':
+            current_camera = 'spotlight'
+            sim.viewer.cam.fixedcamid = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_CAMERA, 'spotlight_camera')
+        else:
+            current_camera = 'fixed'
+            sim.viewer.cam.fixedcamid = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_CAMERA, 'fixed')
+        sim.viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
+        camera_switched = True
+
+    if glfw.get_key(sim.viewer.window, glfw.KEY_T) == glfw.RELEASE:
+        camera_switched = False
 
     mujoco.mj_forward(sim.model, sim.data)
 
@@ -146,8 +161,9 @@ def check_contacts(sim, cont_arr, step_count):
         if (geom1 == 'white_sphero' and geom2 != 'floor' and not geom2.startswith('wall')) or (geom2 == 'white_sphero' and geom1 != 'floor' and not geom1.startswith('wall')):
             print("Contact detected between sphero and", geom1 if geom1 != 'white_sphero' else geom2)
             pos_contact = contact.pos[:2].copy()  # Get only the x and y coordinates and copy the array
-            cont_arr.append((pos_contact, step_count))  # Append to the list along with the time step
-            print(f"Contact position: {pos_contact}, Time step: {step_count}")
+            normal_contact = contact.frame[:3].copy()  # Get the normal direction of the contact
+            cont_arr.append((pos_contact, step_count, normal_contact))  # Append to the list
+            print(f"Contact position: {pos_contact}, time step: {step_count}, normal: {normal_contact}")
 
             # Calculate grid indices for the contact position
             x_idx = int((pos_contact[0] + 1) / 2 * (grid_size - 1))
@@ -168,30 +184,32 @@ def capture_image(sim, viewer, step_count):
     rgb_buffer = np.zeros((height, width, 3), dtype=np.uint8)
     depth_buffer = np.zeros((height, width, 1), dtype=np.float32)
 
-    cam_id = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_CAMERA, 'spotlight_camera')
+    # Get the spotlight camera ID
+    spotlight_cam_id = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_CAMERA, 'spotlight_camera')
 
-    # Set the camera to the spotlight camera
-    viewer.cam.fixedcamid = cam_id
+    # Set the camera to the spotlight camera temporarily
+    original_camid = viewer.cam.fixedcamid
+    original_camtype = viewer.cam.type
+
+    viewer.cam.fixedcamid = spotlight_cam_id
     viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
 
-    # Ensure the camera is set correctly
+    # Update the scene with the spotlight camera
     mujoco.mjv_updateScene(sim.model, sim.data, viewer.vopt, None, viewer.cam, mujoco.mjtCatBit.mjCAT_ALL, viewer.scn)
-    
-    # Set the offscreen buffer
-    mujoco.mjr_setBuffer(mujoco.mjtFramebuffer.mjFB_OFFSCREEN, viewer.ctx)
-    
+
     # Render the scene
     mujoco.mjr_render(viewer.viewport, viewer.scn, viewer.ctx)
-    
+
     # Read the pixels from the buffer
     mujoco.mjr_readPixels(rgb_buffer, depth_buffer, viewer.viewport, viewer.ctx)
-    
-    # Reset to window buffer
-    mujoco.mjr_setBuffer(mujoco.mjtFramebuffer.mjFB_WINDOW, viewer.ctx)
 
     # Save the image
     image = Image.fromarray(rgb_buffer)
     image.save(os.path.join(output_dir, f"step_{step_count}.png"))
+
+    # Restore the original camera
+    viewer.cam.fixedcamid = original_camid
+    viewer.cam.type = original_camtype
 
 # Function to calculate cube edges
 def calculate_cube_edges(cube_pos):
@@ -210,7 +228,7 @@ def zero_rotational_velocity(sim, sphere_joint_id):
     sim.data.qvel[qvel_addr_sphere+3:qvel_addr_sphere+6] = 0  # Zero out the rotational part of the velocity
 
 # Run the simulation
-sim_time = 5.0
+sim_time = 4.0
 step_count = 0
 render_interval = 10  # Render every 10 steps to reduce performance impact
 sphere_joint_id = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_JOINT, 'sphero_free_joint')
@@ -248,8 +266,10 @@ while sim.t < sim_time:
 sim.close_sim()
 
 # Convert the contacts list to a structured NumPy array
-contacts_array = np.array(contacts, dtype=[('position', float, (2,)), ('time_step', int)])
-print("Contacts:", contacts_array)
+contacts_array = np.array(contacts, dtype=[('position', float, (2,)), ('time_step', int), ('normal', float, (3,))])
+for c in contacts:
+    print(c)
+#print("Contacts:", contacts_array)
 
 # Convert the cube_edges list to a NumPy array
 cube_edges = np.array(cube_edges)

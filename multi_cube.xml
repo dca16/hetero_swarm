@@ -1,7 +1,7 @@
 <?xml version="1.0" ?>
 <mujoco model="multicube_simulation">
     <compiler angle="degree" coordinate="local"/>
-    <option timestep="0.001"/>
+    <option timestep="0.001" gravity="0 0 0"/>
 
     <!-- Worldbody -->
     <worldbody>
@@ -118,7 +118,7 @@
         </body>
         
         <!-- Camera -->
-        <camera name="fixed" pos="0 0 1" zaxis="0 0 1"/>
+        <camera name="fixed" pos="0 0 3" zaxis="0 0 1"/>
     </worldbody>
 
     <!-- Assets -->
