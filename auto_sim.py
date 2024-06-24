@@ -2,6 +2,8 @@ import numpy as np
 import mujoco
 import mujoco_viewer
 import glfw
+import sys  # Added for command-line arguments
+import argparse
 from OpenX_Cube_simulator_mujoco2 import OpenX_Simulator_Cube
 import matplotlib.pyplot as plt
 from PIL import Image
@@ -10,6 +12,9 @@ import shutil
 
 # Initialize simulator and controller
 sim = OpenX_Simulator_Cube(render=True)
+
+# Fixed z-height for the spotlight
+fixed_z_height = 0.4
 
 # Cube dimensions (half extents)
 cube_half_extent = 0.05
@@ -39,10 +44,10 @@ current_camera = 'fixed'
 camera_switched = False  # Flag to debounce camera switching
 
 # Function to move sphere randomly
-def move_sphere_randomly(sim):
+def move_sphere_randomly(sim, step_count):  # Added step_count parameter
     sphere_joint_id = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_JOINT, 'sphero_free_joint')
     qpos_addr_sphere = sim.model.jnt_qposadr[sphere_joint_id]
-    pos_sphere = sim.data.qpos[qpos_addr_sphere:qpos_addr_sphere + 3].copy()  # Get the position part of the free joint (first 3 components)
+    pos_sphere = sim.data.qpos[qpos_addr_sphere:qpos_addr_sphere + 3].copy()
 
     # Random movement within a small range
     pos_sphere[:2] += np.random.uniform(-0.01, 0.01, size=2)  # Move in x and y directions randomly
@@ -54,10 +59,10 @@ def move_sphere_randomly(sim):
     sim.data.qpos[qpos_addr_sphere:qpos_addr_sphere + 3] = pos_sphere  # Set the position part of the free joint
 
 # Function to move the sphere efficiently
-def move_sphere_efficiently(sim):
+def move_sphere_efficiently(sim, step_count):  # Added step_count parameter
     sphere_joint_id = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_JOINT, 'sphero_free_joint')
     qpos_addr_sphere = sim.model.jnt_qposadr[sphere_joint_id]
-    pos_sphere = sim.data.qpos[qpos_addr_sphere:qpos_addr_sphere + 3].copy()  # Get the position part of the free joint (first 3 components)
+    pos_sphere = sim.data.qpos[qpos_addr_sphere:qpos_addr_sphere + 3].copy()
 
     # Structured movement pattern to cover the space
     step_size = 0.01  # Adjust step size as needed
@@ -73,23 +78,21 @@ def move_sphere_efficiently(sim):
     sim.data.qpos[qpos_addr_sphere:qpos_addr_sphere + 3] = pos_sphere  # Set the position part of the free joint
 
 # Function to move the sphere using an ergodic algorithm
-def move_sphere_ergodically(sim, step_count):
+def move_sphere_ergodically(sim, step_count):  # Added step_count parameter
     sphere_joint_id = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_JOINT, 'sphero_free_joint')
     qpos_addr_sphere = sim.model.jnt_qposadr[sphere_joint_id]
-    pos_sphere = sim.data.qpos[qpos_addr_sphere:qpos_addr_sphere + 3].copy()  # Get the position part of the free joint (first 3 components)
+    pos_sphere = sim.data.qpos[qpos_addr_sphere:qpos_addr_sphere + 3].copy()
 
     # Update visit count
     x_idx = int((pos_sphere[0] + 1) / 2 * (grid_size - 1))
     y_idx = int((pos_sphere[1] + 0.75) / 1.5 * (grid_size - 1))
     visit_count[x_idx, y_idx] += 1
 
-    # Calculate movement direction based on visit count
+    # Evaluate the entries in each direction and pick the direction that moves towards the entries with the lowest values
     move_directions = [
         (0.005, 0), (-0.005, 0), (0, 0.005), (0, -0.005)
     ]
-    np.random.shuffle(move_directions)  # Randomize the order of directions
-    best_direction = None
-    min_visit = np.inf
+    direction_values = []
     for direction in move_directions:
         new_x_pos = pos_sphere[0] + direction[0]
         new_y_pos = pos_sphere[1] + direction[1]
@@ -97,13 +100,19 @@ def move_sphere_ergodically(sim, step_count):
         if -1 <= new_x_pos <= 1 and -0.75 <= new_y_pos <= 0.75:
             new_x_idx = int((new_x_pos + 1) / 2 * (grid_size - 1))
             new_y_idx = int((new_y_pos + 0.75) / 1.5 * (grid_size - 1))
-            if visit_count[new_x_idx, new_y_idx] < min_visit:
-                min_visit = visit_count[new_x_idx, new_y_idx]
-                best_direction = direction
+            direction_values.append((visit_count[new_x_idx, new_y_idx], direction))
+        else:
+            direction_values.append((np.inf, direction))  # Assign a high value if out of bounds
+
+    # Find the directions with the minimum visit count values
+    min_value = min(direction_values, key=lambda x: x[0])[0]
+    best_directions = [direction for value, direction in direction_values if value == min_value]
+
+    # Pick a direction randomly from the best directions
+    best_direction = best_directions[np.random.choice(len(best_directions))]
 
     # Move in the best direction
-    if best_direction is not None:
-        pos_sphere[:2] += best_direction
+    pos_sphere[:2] += best_direction
 
     # Ensure the sphere remains within bounds
     pos_sphere[0] = np.clip(pos_sphere[0], -1, 1)
@@ -114,10 +123,12 @@ def move_sphere_ergodically(sim, step_count):
     # Reset attraction to contact points after a certain number of steps
     if step_count % contact_influence_steps == 0:
         visit_count[:] = np.maximum(visit_count, 0)  # Ensure visit count does not go negative
-
 # Function to handle key presses for the spotlight
 def handle_key_presses(sim):
-    global current_camera, camera_switched
+    # Use function attribute to initialize camera_switched only once
+    if not hasattr(handle_key_presses, 'camera_switched'):
+        handle_key_presses.camera_switched = False
+        handle_key_presses.current_camera = 'fixed'
 
     # Handle spotlight movement
     spotlight_joint_id = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_JOINT, 'spotlight_free_joint')
@@ -137,18 +148,19 @@ def handle_key_presses(sim):
     sim.data.qpos[qpos_addr_spotlight:qpos_addr_spotlight + 3] = pos_spotlight  # Set the position part of the free joint
 
     # Handle camera toggling
-    if glfw.get_key(sim.viewer.window, glfw.KEY_T) == glfw.PRESS and not camera_switched:
-        if current_camera == 'fixed':
-            current_camera = 'spotlight'
-            sim.viewer.cam.fixedcamid = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_CAMERA, 'spotlight_camera')
-        else:
-            current_camera = 'fixed'
-            sim.viewer.cam.fixedcamid = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_CAMERA, 'fixed')
-        sim.viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
-        camera_switched = True
+    if glfw.get_key(sim.viewer.window, glfw.KEY_T) == glfw.PRESS:
+        if not handle_key_presses.camera_switched:
+            handle_key_presses.current_camera = 'spotlight' if handle_key_presses.current_camera == 'fixed' else 'fixed'
+            handle_key_presses.camera_switched = True
+    else:
+        handle_key_presses.camera_switched = False
 
-    if glfw.get_key(sim.viewer.window, glfw.KEY_T) == glfw.RELEASE:
-        camera_switched = False
+    if handle_key_presses.current_camera == 'spotlight':
+        sim.viewer.cam.fixedcamid = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_CAMERA, 'spotlight_camera')
+    else:
+        sim.viewer.cam.fixedcamid = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_CAMERA, 'fixed')
+
+    sim.viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED
 
     mujoco.mj_forward(sim.model, sim.data)
 
@@ -222,76 +234,122 @@ def calculate_cube_edges(cube_pos):
     ]
     return edges
 
+def plot_contacts_and_edges(contacts_array, cube_edges_array):
+    # Check if contacts_array is defined and has data
+    if contacts_array.size > 0:
+        plt.scatter(contacts_array['position'][:, 0], contacts_array['position'][:, 1], c='red', marker='o', label='Contact Points', s=10)
+    else:
+        print("No contact points to plot")
+
+    # Check if cube_edges_array is defined and has data
+    if cube_edges_array.size > 0:
+        plt.scatter(cube_edges_array[:, 0], cube_edges_array[:, 1], c='green', marker='o', label='Cube Edges', s=10)
+    else:
+        print("No cube edges to plot")
+
+    plt.title('Contact Positions and Cube Edges')
+    plt.xlabel('X Position')
+    plt.ylabel('Y Position')
+    plt.grid(True)
+    plt.legend()
+    plt.show()
+
+    # At the end of the simulation, plot the "visit_count" as a heatmap
+    plt.figure(figsize=(8, 6))
+    plt.imshow(visit_count.T, cmap='hot', origin='lower', extent=[-1, 1, -0.75, 0.75])
+    plt.colorbar(label='Visit Count')
+    plt.title('Heatmap of Visit Count')
+    plt.xlabel('X Position')
+    plt.ylabel('Y Position')
+    plt.show()
+
 # Function to zero out the rotational velocity of the sphere
 def zero_rotational_velocity(sim, sphere_joint_id):
     qvel_addr_sphere = sim.model.jnt_dofadr[sphere_joint_id]
     sim.data.qvel[qvel_addr_sphere+3:qvel_addr_sphere+6] = 0  # Zero out the rotational part of the velocity
 
 # Run the simulation
-sim_time = 4.0
-step_count = 0
-render_interval = 10  # Render every 10 steps to reduce performance impact
-sphere_joint_id = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_JOINT, 'sphero_free_joint')
+def run_simulation(movement_function):
+    # Simulation settings
+    sim_time = 3.0
+    step_count = 0
+    render_interval = 10  # Render every 10 steps to reduce performance impact
+    sphere_joint_id = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_JOINT, 'sphero_free_joint')
 
-# IDs of all green cube bodies
-cube_body_ids = [
-    mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_BODY, 'cube'),
-    mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_BODY, 'cube2'),
-    mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_BODY, 'cube3')
-]
+    # IDs of all green cube bodies
+    cube_body_ids = [
+        mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_BODY, 'cube'),
+        mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_BODY, 'cube2'),
+        mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_BODY, 'cube3')
+    ]
+    
+    contacts = []
+    cube_edges = []
 
-while sim.t < sim_time:
-    if sim.viewer.is_alive:
-        move_sphere_ergodically(sim, step_count)  # Move the sphere using an ergodic algorithm
-        handle_key_presses(sim)
-        check_contacts(sim, contacts, step_count)  # Pass the current step count to the check_contacts function
-        zero_rotational_velocity(sim, sphere_joint_id)
-        ctrl = np.zeros(sim.model.nu)
-        sim.step(ctrl)
-        
-        if step_count % render_interval == 0:
-            sim.viewer.render()
-            capture_image(sim, sim.viewer, step_count)  # Capture image at current time step
+    while sim.t < sim_time:
+        if sim.viewer.is_alive:
+            movement_function(sim, step_count)  # Use the chosen movement function
+            handle_key_presses(sim)
+            check_contacts(sim, contacts, step_count)  # Pass the current step count to the check_contacts function
+            zero_rotational_velocity(sim, sphere_joint_id)
+            ctrl = np.zeros(sim.model.nu)
+            sim.step(ctrl)
+            
+            if step_count % render_interval == 0:
+                sim.viewer.render()
+                capture_image(sim, sim.viewer, step_count)  # Capture image at current time step
 
-        # Get the cube positions and calculate their edges
-        for cube_body_id in cube_body_ids:
-            cube_pos = sim.data.xpos[cube_body_id][:2]
-            cube_edges.extend(calculate_cube_edges(cube_pos))
-        
-        print(f"Step: {step_count}, Simulation time: {sim.t}")
-        step_count += 1
+            # Get the cube positions and calculate their edges
+            for cube_body_id in cube_body_ids:
+                cube_pos = sim.data.xpos[cube_body_id][:2]
+                cube_edges.extend(calculate_cube_edges(cube_pos))  # Ensure edges are added correctly
+            
+            print(f"Step: {step_count}, Simulation time: {sim.t}")
+            step_count += 1
+        else:
+            break
+
+    sim.close_sim()
+
+    # Convert the contacts list to a structured NumPy array
+    if contacts:  # Ensure contacts are not empty
+        contacts_array = np.array(contacts, dtype=[('position', float, (2,)), ('time_step', int), ('normal', float, (3,))])
+        for c in contacts:
+            print(c)
     else:
-        break
+        print("No contacts recorded")
+        contacts_array = np.array([], dtype=[('position', float, (2,)), ('time_step', int), ('normal', float, (3,))])
 
-sim.close_sim()
+    # Convert the cube_edges list to a structured NumPy array
+    if cube_edges:  # Ensure cube_edges are not empty
+        cube_edges_array = np.array(cube_edges)
+        print("Cube edges:", cube_edges_array)
+    else:
+        print("No cube edges recorded")
+        cube_edges_array = np.array([])
+
+    return contacts_array, cube_edges_array
 
 # Convert the contacts list to a structured NumPy array
 contacts_array = np.array(contacts, dtype=[('position', float, (2,)), ('time_step', int), ('normal', float, (3,))])
 for c in contacts:
     print(c)
-#print("Contacts:", contacts_array)
 
 # Convert the cube_edges list to a NumPy array
 cube_edges = np.array(cube_edges)
 print("Cube edges:", cube_edges)
 
-# Plot the contact positions and the edges of the cube
-if contacts_array.size > 0:
-    plt.scatter(contacts_array['position'][:, 0], contacts_array['position'][:, 1], c='red', marker='o', label='Contact Points', s=10)
-if cube_edges.size > 0:
-    plt.scatter(cube_edges[:, 0], cube_edges[:, 1], c='green', marker='o', label='Cube Edges', s=10)
-plt.title('Contact Positions and Cube Edges')
-plt.xlabel('X Position')
-plt.ylabel('Y Position')
-plt.grid(True)
-plt.legend()
-plt.show()
+# Command-line argument parsing
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Choose the movement function for the simulation.")
+    parser.add_argument("movement", choices=["random", "efficient", "ergodic"], help="Movement function to use: 'random', 'efficient', or 'ergodic'")
+    args = parser.parse_args()
 
-# At the end of the simulation, plot the "visit_count" as a heatmap
-plt.figure(figsize=(8, 6))
-plt.imshow(visit_count.T, cmap='hot', origin='lower', extent=[-1, 1, -0.75, 0.75])
-plt.colorbar(label='Visit Count')
-plt.title('Heatmap of Visit Count')
-plt.xlabel('X Position')
-plt.ylabel('Y Position')
-plt.show()
+    if args.movement == "random":
+        contacts_array, cube_edges_array = run_simulation(move_sphere_randomly)
+    elif args.movement == "efficient":
+        contacts_array, cube_edges_array = run_simulation(move_sphere_efficiently)
+    elif args.movement == "ergodic":
+        contacts_array, cube_edges_array = run_simulation(move_sphere_ergodically)
+
+    plot_contacts_and_edges(contacts_array, cube_edges_array)  # Call the plotting function after the simulation
