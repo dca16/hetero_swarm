@@ -1,0 +1,6 @@
+blue_cube
+blue_cyl
+green_cube
+green_cyl
+red_cube
+red_cyl

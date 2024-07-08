@@ -1,0 +1,48 @@
+Wed Jul  3 16:14:38 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 16:16:22 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 16:28:53 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 16:29:07 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 16:32:16 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 16:37:22 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 16:39:49 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 16:40:47 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 16:43:18 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 16:44:18 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 16:45:30 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 16:46:22 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 16:46:40 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 16:50:57 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 16:58:42 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
+Wed Jul  3 17:18:15 2024
+ERROR: mjv_updateCamera: fixed camera id is outside valid range
+
