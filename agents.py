@@ -6,23 +6,48 @@ import os
 import matplotlib.pyplot as plt
 from PIL import Image
 import shutil
+import rclpy
+from rclpy.node import Node
+from std_msgs.msg import String
 
-# Parent class for agents
-class Agent:
+class Agent(Node):
     def __init__(self, sim, name):
+        super().__init__(name)
         self.sim = sim
         self.name = name
+        self.publisher = self.create_publisher(String, f'/{name}_name', 10)
+        self.subscribers = []
+
+    def subscriber_callback(self, msg):
+        # Get the name of the agent that is sending a message
+        other_name = msg.data.split()[-1]
+
+        # Find distance between self and agent sending message
+        self_pos = self.sim.data.xpos[mujoco.mj_name2id(self.sim.model, mujoco.mjtObj.mjOBJ_BODY, self.name)]
+        other_pos = self.sim.data.xpos[mujoco.mj_name2id(self.sim.model, mujoco.mjtObj.mjOBJ_BODY, other_name)]
+        dist = np.linalg.norm(self_pos - other_pos)
+
+        if self.name != other_name and dist < 0.5:
+            if "sphero" in self.name and "sphero" in other_name:
+                other_sphero = next((s for s in self.spheros if s.name == other_name), None)
+                if other_sphero:
+                    self.merged_visit_count = (self.merged_visit_count + other_sphero.merged_visit_count) / 2
+
+            print(f"{self.name} position: {self_pos}, {other_name} position: {other_pos}, distance between: {dist}")
+            self.get_logger().info(f'Received message: {msg.data} on {self.name}')
 
     def move(self):
         pass
 
 # Sphero class inheriting from Agent
 class Sphero(Agent):
-    def __init__(self, sim, name, id, dummy_visit_count, real_visit_count, grid_size=100, contact_influence_steps=100):
+    def __init__(self, sim, name, id, dummy_visit_count, real_visit_count, merged_visit_count, spheros, grid_size=100, contact_influence_steps=100):
         super().__init__(sim, name)
         self.id = id
         self.dummy_visit_count = dummy_visit_count
         self.real_visit_count = real_visit_count
+        self.merged_visit_count = merged_visit_count
+        self.spheros = spheros  # Add this line to store the spheros list
         self.grid_size = grid_size
         self.contact_influence_steps = contact_influence_steps
         self.contacts = []  # To store contacts
@@ -35,6 +60,11 @@ class Sphero(Agent):
         elif movement_type == "ergodic":
             self.move_ergodically(step_count)
 
+        if step_count % 50 == 0:
+            msg = String()
+            msg.data = self.name
+            self.publisher.publish(msg)
+
     def move_ergodically(self, step_count):
         sphere_joint_id = mujoco.mj_name2id(self.sim.model, mujoco.mjtObj.mjOBJ_JOINT, f'white_sphero_{self.id}_free_joint')
         qpos_addr_sphere = self.sim.model.jnt_qposadr[sphere_joint_id]
@@ -45,6 +75,7 @@ class Sphero(Agent):
         y_idx = int((pos_sphere[1] + 0.75) / 1.5 * (self.grid_size - 1))
         self.dummy_visit_count[x_idx, y_idx] += 1
         self.real_visit_count[x_idx, y_idx] += 1
+        self.merged_visit_count[x_idx, y_idx] += 1
 
         # Calculate movement direction based on visit count
         move_directions = [(0.005, 0), (-0.005, 0), (0, 0.005), (0, -0.005)]
@@ -87,11 +118,9 @@ class Sphero(Agent):
             geom2 = mujoco.mj_id2name(self.sim.model, mujoco.mjtObj.mjOBJ_GEOM, contact.geom2)
             if (geom1 == self.name and geom2 != 'floor' and not geom2.startswith('wall') and not geom2.startswith('white_sphero')) or \
                (geom2 == self.name and geom1 != 'floor' and not geom1.startswith('wall') and not geom1.startswith('white_sphero')):
-                print("Contact detected between", self.name, "and", geom1 if geom1 != self.name else geom2)
                 pos_contact = contact.pos[:2].copy()  # Get only the x and y coordinates and copy the array
                 normal_contact = contact.frame[:3].copy()  # Get the normal direction of the contact
                 self.contacts.append((pos_contact, step_count, normal_contact))  # Append to the list
-                print(f"Contact position: {pos_contact}, time step: {step_count}, normal: {normal_contact}")
 
                 # Calculate grid indices for the contact position
                 x_idx = int((pos_contact[0] + 1) / 2 * (self.grid_size - 1))
@@ -158,7 +187,12 @@ class Spotlight(Agent):
         self.sim.data.qpos[qpos_addr_spotlight:qpos_addr_spotlight + 3] = pos_spotlight
 
         mujoco.mj_forward(self.sim.model, self.sim.data)
-        
+
+        if step_count % 50 == 0:
+            msg = String()
+            msg.data = self.name
+            self.publisher.publish(msg)
+
 # Function to handle key presses for the spotlight
 def handle_key_presses(sim):
     if not hasattr(handle_key_presses, 'camera_switched'):
@@ -235,8 +269,12 @@ def zero_rotational_velocity(sim, joint_id):
     sim.data.qvel[qvel_addr + 3:qvel_addr + 6] = 0
 
 # Function to plot contacts and edges
-def plot_contacts_and_edges(contacts_array, all_object_edges_array, visit_count):
+def plot_contacts_and_edges(contacts_array, all_object_edges_array, visit_count, spheros):
+    # Plot contact positions and object edges
+    plt.figure(figsize=(12, 10))
+
     if contacts_array.size > 0:
+        plt.subplot(2, 2, 1)
         plt.scatter(contacts_array['position'][:, 0], contacts_array['position'][:, 1], c='red', marker='o', label='Contact Points', s=10)
     else:
         print("No contact points to plot")
@@ -251,14 +289,36 @@ def plot_contacts_and_edges(contacts_array, all_object_edges_array, visit_count)
     plt.ylabel('Y Position')
     plt.grid(True)
     plt.legend()
-    plt.show()
 
-    plt.figure(figsize=(8, 6))
+    # Plot heatmap of visit count
+    plt.subplot(2, 2, 2)
     plt.imshow(visit_count.T, cmap='hot', origin='lower', extent=[-1, 1, -0.75, 0.75])
     plt.colorbar(label='Visit Count')
     plt.title('Heatmap of Visit Count')
     plt.xlabel('X Position')
     plt.ylabel('Y Position')
+
+    # Plot heatmap of real visit counts and merged visit counts for each sphero
+    n_spheros = len(spheros)
+    fig, axs = plt.subplots(2, n_spheros, figsize=(20, 10))
+
+    for idx, sphero in enumerate(spheros):
+        ax = axs[0, idx]
+        ax.imshow(sphero.real_visit_count.T, cmap='hot', origin='lower', extent=[-1, 1, -0.75, 0.75])
+        ax.set_title(f'Real Visit Count for {sphero.name}')
+        ax.set_xlabel('X Position')
+        ax.set_ylabel('Y Position')
+        ax.grid(True)
+
+    for idx, sphero in enumerate(spheros):
+        ax = axs[1, idx]
+        ax.imshow(sphero.merged_visit_count.T, cmap='hot', origin='lower', extent=[-1, 1, -0.75, 0.75])
+        ax.set_title(f'Merged Visit Count for {sphero.name}')
+        ax.set_xlabel('X Position')
+        ax.set_ylabel('Y Position')
+        ax.grid(True)
+
+    plt.tight_layout()
     plt.show()
 
 # Function to calculate edges of all objects in the environment

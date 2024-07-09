@@ -104,27 +104,15 @@
         </body>
 
         
-        <body name="white_sphero_0" pos="-0.23523667986009053 -0.17418336063646697 0.05">
+        <body name="white_sphero_0" pos="0.12162669243289685 0.21875681704977357 0.05">
             <geom name="white_sphero_0" type="sphere" size="0.05" rgba="1 1 1 1" contype="1" conaffinity="1"/>
             <joint name="white_sphero_0_free_joint" type="free" />
             <inertial pos="0 0 0" mass="10.0" diaginertia="1 1 1"/>
         </body>
         
-        <body name="white_sphero_1" pos="-0.1777181967528853 0.06067128813764855 0.05">
+        <body name="white_sphero_1" pos="-0.23133211495773484 -0.23916880270991156 0.05">
             <geom name="white_sphero_1" type="sphere" size="0.05" rgba="1 1 1 1" contype="1" conaffinity="1"/>
             <joint name="white_sphero_1_free_joint" type="free" />
-            <inertial pos="0 0 0" mass="10.0" diaginertia="1 1 1"/>
-        </body>
-        
-        <body name="white_sphero_2" pos="0.18524629524231861 0.15728578785856612 0.05">
-            <geom name="white_sphero_2" type="sphere" size="0.05" rgba="1 1 1 1" contype="1" conaffinity="1"/>
-            <joint name="white_sphero_2_free_joint" type="free" />
-            <inertial pos="0 0 0" mass="10.0" diaginertia="1 1 1"/>
-        </body>
-        
-        <body name="white_sphero_3" pos="0.07783362190265553 -0.2891569478423557 0.05">
-            <geom name="white_sphero_3" type="sphere" size="0.05" rgba="1 1 1 1" contype="1" conaffinity="1"/>
-            <joint name="white_sphero_3_free_joint" type="free" />
             <inertial pos="0 0 0" mass="10.0" diaginertia="1 1 1"/>
         </body>
         
@@ -139,13 +127,6 @@
                 <joint name="spotlight_free_joint_1" type="free" />
                 <light name="spotlight_1" pos="0 0 0" dir="0 0 -1" diffuse="1 1 1" specular="0.5 0.5 0.5" cutoff="45" exponent="10" directional="false"/>
                 <camera name="spotlight_camera_1" pos="0 0 0.1" mode="trackcom"/>
-                <inertial pos="0 0 0" mass="0.01" diaginertia="0.001 0.001 0.001"/>
-            </body>
-            
-            <body name="spotlight_body_2" pos="0 0 0.5">
-                <joint name="spotlight_free_joint_2" type="free" />
-                <light name="spotlight_2" pos="0 0 0" dir="0 0 -1" diffuse="1 1 1" specular="0.5 0.5 0.5" cutoff="45" exponent="10" directional="false"/>
-                <camera name="spotlight_camera_2" pos="0 0 0.1" mode="trackcom"/>
                 <inertial pos="0 0 0" mass="0.01" diaginertia="0.001 0.001 0.001"/>
             </body>
             <!-- Insert agents here -->
