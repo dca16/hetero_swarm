@@ -1,37 +1,86 @@
 import tensorflow as tf
+from tensorflow import keras
+from tensorflow.keras import layers
+from tensorflow.keras.models import Sequential
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense, Conv2D, MaxPooling2D, Flatten, Input, Dropout
 import os
+import shutil
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+import PIL
 
 # Set the path to the dataset
 dataset_path = '/Users/domalberts/Documents/GitHub/hetero_swarm/verification_images'
+train_dir = '/Users/domalberts/Documents/GitHub/hetero_swarm/train_images'
+val_dir = '/Users/domalberts/Documents/GitHub/hetero_swarm/val_images'
+test_dir = '/Users/domalberts/Documents/GitHub/hetero_swarm/test_images'
+
+# Function to create directories
+def create_dir(directory):
+    if os.path.exists(directory):
+        shutil.rmtree(directory)
+    os.makedirs(directory)
+
+# Create train, validation, and test directories
+create_dir(train_dir)
+create_dir(val_dir)
+create_dir(test_dir)
+
+# Split dataset into training, validation, and test sets
+def split_data(dataset_path, train_dir, val_dir, test_dir, train_split=0.7, val_split=0.15, test_split=0.15, seed=123):
+    assert train_split + val_split + test_split == 1, "Splits must add up to 1"
+    np.random.seed(seed)
+    class_names = os.listdir(dataset_path)
+    for class_name in class_names:
+        class_dir = os.path.join(dataset_path, class_name)
+        if os.path.isdir(class_dir):
+            images = os.listdir(class_dir)
+            np.random.shuffle(images)
+            train_count = int(len(images) * train_split)
+            val_count = int(len(images) * val_split)
+            train_images = images[:train_count]
+            val_images = images[train_count:train_count + val_count]
+            test_images = images[train_count + val_count:]
+            for image in train_images:
+                src_path = os.path.join(class_dir, image)
+                dst_dir = os.path.join(train_dir, class_name)
+                os.makedirs(dst_dir, exist_ok=True)
+                shutil.copy(src_path, dst_dir)
+            for image in val_images:
+                src_path = os.path.join(class_dir, image)
+                dst_dir = os.path.join(val_dir, class_name)
+                os.makedirs(dst_dir, exist_ok=True)
+                shutil.copy(src_path, dst_dir)
+            for image in test_images:
+                src_path = os.path.join(class_dir, image)
+                dst_dir = os.path.join(test_dir, class_name)
+                os.makedirs(dst_dir, exist_ok=True)
+                shutil.copy(src_path, dst_dir)
+
+split_data(dataset_path, train_dir, val_dir, test_dir)
 
 # Set image size and batch size
 img_height, img_width = 150, 150
 batch_size = 8
 
-# Set training and validation directories
-train_dir = dataset_path
-validation_dir = dataset_path
-
-# Load dataset
+# Load dataset and split into training, validation, and test sets
 train_ds = tf.keras.utils.image_dataset_from_directory(
     train_dir,
-    validation_split=0.2,
-    subset="training",
-    seed=123,
     image_size=(img_height, img_width),
     batch_size=batch_size
 )
 
 val_ds = tf.keras.utils.image_dataset_from_directory(
-    validation_dir,
-    validation_split=0.2,
-    subset="validation",
-    seed=123,
+    val_dir,
+    image_size=(img_height, img_width),
+    batch_size=batch_size
+)
+
+test_ds = tf.keras.utils.image_dataset_from_directory(
+    test_dir,
     image_size=(img_height, img_width),
     batch_size=batch_size
 )
@@ -42,8 +91,8 @@ num_classes = len(class_names)
 
 # Apply data augmentation
 data_augmentation = tf.keras.Sequential([
-  tf.keras.layers.RandomFlip("horizontal_and_vertical"),
-  tf.keras.layers.RandomRotation(0.2),
+    tf.keras.layers.RandomFlip("horizontal_and_vertical"),
+    tf.keras.layers.RandomRotation(0.2),
 ])
 
 train_ds = train_ds.map(lambda x, y: (data_augmentation(x, training=True), y))
@@ -124,27 +173,12 @@ plt.xlabel('Epoch')
 plt.legend(['Train', 'Validation'], loc='upper left')
 plt.show()
 
-# Generate confusion matrix
-y_true = []
-y_pred = []
-
-for images, labels in val_ds.take(validation_steps):
-    predictions = model.predict(images)
-    predicted_labels = np.argmax(predictions, axis=1)
-    y_true.extend(labels.numpy())
-    y_pred.extend(predicted_labels)
-
-cm = confusion_matrix(y_true, y_pred)
-disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
-disp.plot()
-plt.show()
-
 # Save class names
 with open('class_names.txt', 'w') as f:
     for class_name in class_names:
         f.write(f"{class_name}\n")
 
-# Display all validation images with their predicted labels
+# Display some validation images with their predicted labels
 plt.figure(figsize=(15, 15))
 val_images = list(val_ds.take(validation_steps).as_numpy_iterator())
 

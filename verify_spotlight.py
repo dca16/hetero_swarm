@@ -11,20 +11,23 @@ from OpenX_Cube_simulator_mujoco2 import OpenX_Simulator_Cube
 
 # Argument parsing for shape and color
 parser = argparse.ArgumentParser(description="Choose the shape and color of the object.")
-parser.add_argument("shape", choices=["cube", "cylinder"], help="Shape of the object: 'cube' or 'cylinder'")
-parser.add_argument("color", choices=["red", "green", "blue"], help="Color of the object: 'red', 'green', or 'blue'")
+parser.add_argument("shape", choices=["cube", "cylinder", "none"], help="Shape of the object: 'cube', 'cylinder', or 'none'")
+parser.add_argument("color", choices=["red", "green", "blue", "none"], help="Color of the object: 'red', 'green', 'blue', or 'none'")
 args = parser.parse_args()
 
 # Generate object-specific XML
 def generate_object_xml(object_type, object_color):
+    if object_type == "none" and object_color == "none":
+        return ""  # Return an empty string if no object is to be added
+    
     color_dict = {
         'red': '1 0 0 1',
         'green': '0 1 0 1',
         'blue': '0 0 1 1'
     }
     type_dict = {
-    'cube': 'box',
-    'cylinder': 'cylinder'
+        'cube': 'box',
+        'cylinder': 'cylinder'
     }
     object_xml = f"""
     <body name="object" pos="0 0 0.05">
@@ -115,7 +118,7 @@ fixed_z_height = 0.4
 captured_images = []
 
 # Directory to save images
-output_dir = "/Users/domalberts/Documents/GitHub/hetero_swarm/verification_images/blue_cyl"
+output_dir = "/Users/domalberts/Documents/GitHub/hetero_swarm/verification_images/red_cyl"
 
 # Clear the captured images folder
 if os.path.exists(output_dir):
@@ -202,8 +205,8 @@ def capture_image(sim, viewer, step_count):
 
 # Add this function to generate the raster path for a 4x4 grid
 def generate_4x4_grid_path(x_range, y_range):
-    x_values = np.linspace(x_range[0], x_range[1], 10)
-    y_values = np.linspace(y_range[0], y_range[1], 10)
+    x_values = np.linspace(x_range[0], x_range[1], 30)
+    y_values = np.linspace(y_range[0], y_range[1], 30)
     path = []
     for y in y_values:
         for x in x_values:

@@ -1,5 +1,6 @@
 blue_cube
 blue_cyl
+empty
 green_cube
 green_cyl
 red_cube

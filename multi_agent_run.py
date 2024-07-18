@@ -7,6 +7,7 @@ import shutil
 import matplotlib.pyplot as plt
 from agents import Sphero, Spotlight, handle_key_presses, capture_image, generate_4x4_grid_path, zero_rotational_velocity, plot_contacts_and_edges, calculate_all_object_edges
 from OpenX_Cube_simulator_mujoco2 import OpenX_Simulator_Cube  # Correct module name
+import cv2
 
 parser = argparse.ArgumentParser(description="Run a simulation with Spheros and Spotlights.")
 parser.add_argument("--num_spheros", type=int, required=True, help="Number of Spheros in the simulation.")
