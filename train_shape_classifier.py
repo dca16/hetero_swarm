@@ -135,6 +135,8 @@ model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=0.001),
               loss='sparse_categorical_crossentropy',
               metrics=['accuracy'])
 
+model.summary()
+'''
 history = model.fit(
     train_ds,
     validation_data=val_ds,
@@ -189,3 +191,4 @@ for i, (images, labels) in enumerate(val_images):
         plt.title(class_names[np.argmax(model.predict(images[j:j+1]))])
         plt.axis("off")
 plt.show()
+'''
