@@ -9,23 +9,27 @@ from tensorflow.keras.models import Sequential
 import pathlib
 from PIL import Image
 
+'''
 # get dataset
 dataset_url = "https://storage.googleapis.com/download.tensorflow.org/example_images/flower_photos.tgz"
 data_dir = tf.keras.utils.get_file('flower_photos.tar', origin=dataset_url, extract=True)
 data_dir = pathlib.Path(data_dir).with_suffix('')
+'''
+
+data_dir = pathlib.Path('/Users/domalberts/Documents/GitHub/hetero_swarm/train_images').with_suffix('')
 
 # count images
-image_count = len(list(data_dir.glob('*/*.jpg')))
+image_count = len(list(data_dir.glob('*/*.png')))
 print(image_count)
 
 # output individual classes
-roses = list(data_dir.glob('roses/*'))
-Image.open(str(roses[0]))
-Image.open(str(roses[1]))
+green_cyl = list(data_dir.glob('green_cyl/*'))
+Image.open(str(green_cyl[0]))
+Image.open(str(green_cyl[1]))
 
-tulips = list(data_dir.glob('tulips/*'))
-Image.open(str(tulips[0]))
-Image.open(str(tulips[1]))
+blue_cube = list(data_dir.glob('blue_cube/*'))
+Image.open(str(blue_cube[0]))
+Image.open(str(blue_cube[1]))
 # note: won't show unless you call ".show()" at the end of each Image.open line
 
 # define parameters for loader
@@ -150,12 +154,12 @@ plt.legend(loc='upper right')
 plt.title('Training and Validation Loss')
 plt.show()
 
+
 # predict on new data
-sunflower_url = "https://storage.googleapis.com/download.tensorflow.org/example_images/592px-Red_sunflower.jpg"
-sunflower_path = tf.keras.utils.get_file('Red_sunflower', origin=sunflower_url)
+test_path = pathlib.Path('/Users/domalberts/Documents/GitHub/hetero_swarm/train_images/blue_cyl/step_144.png')
 
 img = tf.keras.utils.load_img(
-    sunflower_path, target_size=(img_height, img_width)
+    test_path, target_size=(img_height, img_width)
 )
 img_array = tf.keras.utils.img_to_array(img)
 img_array = tf.expand_dims(img_array, 0) # Create a batch
@@ -168,35 +172,4 @@ print(
     .format(class_names[np.argmax(score)], 100 * np.max(score))
 )
 
-'''
-# train model
-epochs=10
-history = model.fit(
-  train_ds,
-  validation_data=val_ds,
-  epochs=epochs
-)
-
-# visualize training results
-acc = history.history['accuracy']
-val_acc = history.history['val_accuracy']
-
-loss = history.history['loss']
-val_loss = history.history['val_loss']
-
-epochs_range = range(epochs)
-
-plt.figure(figsize=(8, 8))
-plt.subplot(1, 2, 1)
-plt.plot(epochs_range, acc, label='Training Accuracy')
-plt.plot(epochs_range, val_acc, label='Validation Accuracy')
-plt.legend(loc='lower right')
-plt.title('Training and Validation Accuracy')
-
-plt.subplot(1, 2, 2)
-plt.plot(epochs_range, loss, label='Training Loss')
-plt.plot(epochs_range, val_loss, label='Validation Loss')
-plt.legend(loc='upper right')
-plt.title('Training and Validation Loss')
-plt.show()
-'''
+model.save('/Users/domalberts/Documents/GitHub/hetero_swarm/dom_model.keras')

@@ -26,7 +26,7 @@ cube_edges = []  # List to store the edges of the cube
 captured_images = []
 
 # Directory to save images
-output_dir = "full_env_verify"
+output_dir = "rcnn_images"
 
 # Clear the captured images folder
 if os.path.exists(output_dir):

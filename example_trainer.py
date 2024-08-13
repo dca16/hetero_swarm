@@ -120,7 +120,7 @@ model.compile(optimizer='adam',
 model.summary()
 
 # train model
-epochs = 15
+epochs = 2
 history = model.fit(
   train_ds,
   validation_data=val_ds,
@@ -167,36 +167,24 @@ print(
     "This image most likely belongs to {} with a {:.2f} percent confidence."
     .format(class_names[np.argmax(score)], 100 * np.max(score))
 )
-
 '''
-# train model
-epochs=10
-history = model.fit(
-  train_ds,
-  validation_data=val_ds,
-  epochs=epochs
-)
+# Convert the model.
+converter = tf.lite.TFLiteConverter.from_keras_model(model)
+tflite_model = converter.convert()
 
-# visualize training results
-acc = history.history['accuracy']
-val_acc = history.history['val_accuracy']
+# Save the model.
+with open('model.tflite', 'wb') as f:
+  f.write(tflite_model)
 
-loss = history.history['loss']
-val_loss = history.history['val_loss']
+TF_MODEL_FILE_PATH = 'model.tflite' # The default path to the saved TensorFlow Lite model
+interpreter = tf.lite.Interpreter(model_path=TF_MODEL_FILE_PATH)
 
-epochs_range = range(epochs)
+interpreter.get_signature_list()
 
-plt.figure(figsize=(8, 8))
-plt.subplot(1, 2, 1)
-plt.plot(epochs_range, acc, label='Training Accuracy')
-plt.plot(epochs_range, val_acc, label='Validation Accuracy')
-plt.legend(loc='lower right')
-plt.title('Training and Validation Accuracy')
+classify_lite = interpreter.get_signature_runner('serving_default')
+classify_lite
 
-plt.subplot(1, 2, 2)
-plt.plot(epochs_range, loss, label='Training Loss')
-plt.plot(epochs_range, val_loss, label='Validation Loss')
-plt.legend(loc='upper right')
-plt.title('Training and Validation Loss')
-plt.show()
+predictions_lite = classify_lite(sequential_1_input=img_array)['outputs']
+score_lite = tf.nn.softmax(predictions_lite)
 '''
+model.save('/Users/domalberts/Documents/GitHub/hetero_swarm/example_model.keras')

@@ -1,7 +1,7 @@
+import argparse
 import numpy as np
 import mujoco
 import mujoco_viewer
-import argparse
 import os
 import shutil
 import matplotlib.pyplot as plt
@@ -14,8 +14,8 @@ from OpenX_Cube_simulator_mujoco2 import OpenX_Simulator_Cube  # Correct module 
 parser = argparse.ArgumentParser(description="Run a simulation with Spheros and Spotlights.")
 parser.add_argument("--num_spheros", type=int, required=True, help="Number of Spheros in the simulation.")
 parser.add_argument("--num_spotlights", type=int, required=True, help="Number of Spotlights in the simulation.")
-parser.add_argument("--sphero_movement", choices=["random", "efficient", "ergodic"], required=True, help="Movement function for the Spheros: 'random', 'efficient', or 'ergodic'.")
-parser.add_argument("--spotlight_movement", choices=["raster", "ergodic"], required=True, help="Movement function for the Spotlights: 'raster' or 'ergodic'.")
+parser.add_argument("--sphero_movement", choices=["random", "efficient", "ergodic", "ergodic_old", "spanning_tree"], required=True, help="Movement function for the Spheros: 'random', 'efficient', 'ergodic', 'ergodic_old', or 'spanning_tree'.")
+parser.add_argument("--spotlight_movement", choices=["raster", "ergodic", "random"], required=True, help="Movement function for the Spotlights: 'raster', 'ergodic', or 'random'.")
 args = parser.parse_args()
 
 output_dir = "captured_images"
@@ -114,21 +114,32 @@ def run_simulation(sim, spheros, spotlights, sphero_movement, spotlight_movement
     sim_time = 5.0
     step_count = 0
     render_interval = 10  # Render every 10 steps to reduce performance impact
-    environment_matrix = np.zeros((100, 100))  # Initialize the environment matrix
 
-    detected_colors = []  # Initialize the detected colors list
+    # Initialize an empty predictions array with the same size as the spotlight prediction grid
+    all_preds = np.zeros_like(spotlights[0].target_pred)
+
+    # Generate spanning tree path if needed
+    if sphero_movement == "spanning_tree":
+        x_range = (-1.0, 1.0)
+        y_range = (-0.75, 0.75)
+        grid_size_x = 10
+        grid_size_y = 8
+        spanning_tree_path = spheros[0].generate_spanning_tree_path(x_range, y_range, grid_size_x, grid_size_y)
 
     while step_count < 1000:  # Ensure the simulation runs for 1000 steps
         if sim.viewer.is_alive:
             for sphero in spheros:
-                sphero.move(step_count, sphero_movement)
+                if sphero_movement == "spanning_tree":
+                    sphero.move_spanning_tree(step_count, spanning_tree_path)
+                else:
+                    sphero.move(step_count, sphero_movement)
                 sphero.check_contacts(step_count)
             for spotlight in spotlights:
                 spotlight.move(step_count, spotlight_movement)
                 if step_count % render_interval == 0:
-                    image_path = spotlight.capture_image(sim, sim.viewer, step_count, output_dir, spotlight.name)
+                    image_path, x_pos, y_pos = spotlight.capture_image(sim, sim.viewer, step_count, output_dir, spotlight.name)
                     if image_path:
-                        detected_colors = spotlight.evaluate_color_and_store_value(image_path, environment_matrix, detected_colors)
+                        spotlight.classify_image(image_path, x_pos, y_pos)
 
             ctrl = np.zeros(sim.model.nu)
             sim.step(ctrl)
@@ -157,7 +168,7 @@ def run_simulation(sim, spheros, spotlights, sphero_movement, spotlight_movement
     # Collect contacts from all spheros
     all_contacts = []
     for sphero in spheros:
-        all_contacts.extend(sphero.contacts)
+        all_contacts.extend(sphero.contact_log)
 
     # Convert the contacts list to a structured NumPy array
     if all_contacts:
@@ -165,11 +176,15 @@ def run_simulation(sim, spheros, spotlights, sphero_movement, spotlight_movement
     else:
         contacts_array = np.array([], dtype=[('position', float, (2,)), ('time_step', int), ('normal', float, (3,))])
 
+    # Combine the predictions from all spotlights
+    for spotlight in spotlights:
+        all_preds = np.maximum(all_preds, spotlight.target_pred)  # Combine by taking the maximum value at each position
+
     # Calculate all object edges
     all_object_edges_array = calculate_all_object_edges(sim)
 
     # Plot the results including merged and real visit counts for each sphero
-    plot_contacts_and_edges(contacts_array, all_object_edges_array, spheros, environment_matrix, detected_colors)
+    plot_contacts_and_edges(contacts_array, all_object_edges_array, spheros, all_preds)
 
     return contacts_array, all_object_edges_array, spheros  # Ensure it returns the correct values
 
@@ -188,10 +203,19 @@ if __name__ == "__main__":
     print(f"Spotlight Movement type: {args.spotlight_movement}")
 
     # Create spheros
-    spheros = [Sphero(sim, f'white_sphero_{i}', i, np.zeros((100, 100)), np.zeros((100, 100)), np.zeros((100, 100)), None) for i in range(args.num_spheros)]
+    spheros = [Sphero(sim, f'white_sphero_{i}', i, np.zeros((100, 100)), np.zeros((100, 100)), np.zeros((100, 100)), []) for i in range(args.num_spheros)]
+
     # After creating all spheros, assign the list to each instance
     for sphero in spheros:
         sphero.spheros = spheros
+        sphero.contacts = np.full((sphero.grid_size, sphero.grid_size), 0.5)
+
+    # Adjust starting position of sphero to avoid wall
+    initial_pos = [-0.9, -0.65, 0.05]
+    for sphero in spheros:
+        sphere_joint_id = mujoco.mj_name2id(sim.model, mujoco.mjtObj.mjOBJ_JOINT, f'{sphero.name}_free_joint')
+        qpos_addr_sphere = sim.model.jnt_qposadr[sphere_joint_id]
+        sim.data.qpos[qpos_addr_sphere:qpos_addr_sphere + 3] = initial_pos
 
     # Create spotlights
     spotlights = [Spotlight(sim, 'spotlight', 0, np.zeros((100, 100)), np.zeros((100, 100)), np.zeros((100, 100)))] + \
@@ -200,11 +224,15 @@ if __name__ == "__main__":
     # Create publishers and subscribers for agents
     create_publishers(node, spheros, spotlights)
 
+    # Generate spanning tree path if needed
+    if args.sphero_movement == "spanning_tree":
+        x_range = (-0.9, 0.9)
+        y_range = (-0.65, 0.65)
+        grid_size_x = 10
+        grid_size_y = 8
+        for sphero in spheros:
+            sphero.spanning_tree_path = sphero.generate_spanning_tree_path(x_range, y_range, grid_size_x, grid_size_y)
+
     # Run the simulation and get the results
     contacts_array, all_object_edges_array, spheros = run_simulation(sim, spheros, spotlights, args.sphero_movement, args.spotlight_movement, node)
-
-    # Plot the results
-    plot_contacts_and_edges(contacts_array, all_object_edges_array, spheros, environment_matrix)
-
     rclpy.shutdown()
-
