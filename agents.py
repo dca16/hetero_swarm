@@ -483,7 +483,7 @@ class Spotlight(Agent):
         # Load and preprocess the image using the trained CNN model to get the prediction
         model = keras.models.load_model('/Users/domalberts/Documents/GitHub/hetero_swarm/gc_model.keras')
 
-        data_dir = pathlib.Path('/Users/domalberts/Documents/GitHub/hetero_swarm/gc_train').with_suffix('')
+        data_dir = pathlib.Path('/Users/domalberts/Documents/GitHub/hetero_swarm/data collection/gc_train').with_suffix('')
 
         train_ds = tf.keras.utils.image_dataset_from_directory(
         data_dir,
